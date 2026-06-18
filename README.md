@@ -1,10 +1,12 @@
 # Gateway API Portability Kit
 
-A hands-on Kubernetes lab for migrating from **ingress-nginx** to **Gateway API**, then comparing portability across multiple Gateway API controllers.
+A hands-on Kubernetes lab for migrating from **ingress-nginx** to **Gateway API**, then extending the journey into **AI Gateway**, **MCP Gateway**, external backend, policy, telemetry, and controller portability patterns.
 
 ## Overview
 
 Many Kubernetes users start with `ingress-nginx` because it is familiar, widely adopted, and easy to run locally. Gateway API is the newer Kubernetes-native traffic-management API, but unlike the way many users treat `ingress-nginx` in the Ingress world, Gateway API has **no single default controller**.
+
+This project also treats **AI Gateway** as a first-class direction. Gateway API is increasingly relevant to model traffic, inference routing, MCP server access, external AI services, egress control, policy attachment, telemetry, and security. The project therefore starts with classic Ingress migration, then grows toward AI Gateway, MCP Gateway, platform-governance, and controller-portability patterns.
 
 This project uses a practical migration story:
 
@@ -13,7 +15,7 @@ ingress-nginx baseline
   ↓
 Gateway API equivalent
   ↓
-Controller portability comparison
+AI Gateway, MCP Gateway, and controller portability comparison
 ```
 
 The goal is to help platform engineers, DevOps engineers, SREs, and Kubernetes users understand:
@@ -43,6 +45,7 @@ Compare what actually stays portable.
 - Provide a clear migration path from `ingress-nginx` to Gateway API.
 - Show side-by-side examples of Ingress and Gateway API resources.
 - Compare multiple Gateway API controllers using the same scenarios.
+- Add an AI Gateway track covering model traffic, inference routing, MCP Gateway patterns, external AI backends, egress risk, and policy/security controls.
 - Separate standard Gateway API resources from controller-specific configuration.
 - Document portability notes, limitations, status conditions, and implementation differences.
 - Keep the examples simple enough to run locally with `kind` first, with `k3d` support as a future option.
@@ -88,11 +91,16 @@ Part B - Platform engineering path
 Part C - Production ecosystem path
   08 -> 09 -> 10 -> 11
 
-Part D - Controller portability path
-  12
+Part D - AI Gateway and emerging Gateway API path
+  12 -> 13 -> 14
+
+Part E - Controller portability path
+  15
 ```
 
 This keeps the first path approachable while still leaving room for deeper platform, security, observability, and architecture topics.
+
+AI Gateway is treated as a required roadmap area, not an optional appendix. The project should still start with stable, runnable Gateway API fundamentals first, but the advanced path must connect those fundamentals to model-serving, inference routing, external AI APIs, policy, telemetry, and egress-security scenarios.
 
 ### Part A - Core migration path
 
@@ -127,11 +135,21 @@ These chapters separate Gateway API itself from the ecosystem tools usually need
 | 10 | `10-security-integrations` | WAF, authentication, rate limiting, and policy engines | Clarify what Gateway API does not provide alone and where third-party tools fit. |
 | 11 | `11-multi-cluster-patterns` | DNS, global load balancers, mesh, GitOps, and multi-cluster patterns | Show Gateway API as a building block, not a full global traffic system by itself. |
 
-### Part D - Controller portability path
+### Part D - AI Gateway and emerging Gateway API path
+
+These chapters track areas that are very close to the current Gateway API direction, especially AI Gateway, Backend/XBackend, inference routing, egress, policy, telemetry, and conformance.
 
 | Chapter | Example / topic | Topic | Purpose |
 |---|---|---|---|
-| 12 | `12-controller-portability` | NGINX Gateway Fabric, Cilium, Traefik, and Envoy Gateway comparison | Test selected chapters against other controllers and document what is portable, extended, or controller-specific. |
+| 12 | `12-ai-gateway-basics` | AI Gateway, MCP Gateway, model traffic, and inference routing | Show how Gateway API concepts can front AI services, MCP servers, agent-to-tool traffic, and model-serving traffic. |
+| 13 | `13-egress-and-external-backends` | External AI APIs, external/internal MCP servers, egress Gateway patterns, ExternalHostname/XBackend concepts, and open-relay risk | Explore safe outbound traffic patterns and security concerns around AI API and MCP server access. |
+| 14 | `14-policy-telemetry-and-conformance` | Policy attachment, TelemetryPolicy, MCP tool governance, session persistence, regex portability, and conformance testing | Track emerging Gateway API features that affect portability, AI/MCP security, and production readiness. |
+
+### Part E - Controller portability path
+
+| Chapter | Example / topic | Topic | Purpose |
+|---|---|---|---|
+| 15 | `15-controller-portability` | NGINX Gateway Fabric, Cilium, Traefik, and Envoy Gateway comparison | Test selected chapters against other controllers and document what is portable, extended, or controller-specific. |
 
 ## Target repository structure
 
@@ -150,6 +168,9 @@ gateway-api-portability-kit/
     04-failure-behaviour.md          # planned
     portability-rules.md             # planned
     controller-picker.md             # planned
+    ai-gateway-roadmap.md            # planned
+    mcp-gateway-notes.md             # planned
+    out-of-scope.md                  # planned
 
   controllers/
     ingress-nginx/
@@ -189,12 +210,17 @@ gateway-api-portability-kit/
     09-observability-integrations/ # planned
     10-security-integrations/      # planned
     11-multi-cluster-patterns/     # planned
-    12-controller-portability/     # planned
+    12-ai-gateway-basics/          # planned
+    13-egress-and-external-backends/ # planned
+    14-policy-telemetry-and-conformance/ # planned
+    15-controller-portability/     # planned
 
   apps/                            # planned
     echo-v1/                       # planned
     echo-v2/                       # planned
     echo-admin/                    # planned
+    mock-ai-service/               # planned
+    mock-mcp-server/               # planned
 
   scripts/
     create-cluster.sh
@@ -293,7 +319,7 @@ Portability ratings used by this project:
 | P3 | Controller-specific or third-party integration. |
 | P4 | Architecture pattern rather than a directly portable manifest. |
 
-Chapter 12 should not blindly retest everything. It should compare a selected portability matrix and document what works, what changes, and what remains implementation-specific.
+Chapter 15 should not blindly retest everything. It should compare a selected portability matrix and document what works, what changes, and what remains implementation-specific.
 
 ## Scope and roadmap
 
@@ -338,12 +364,71 @@ The later path explains where Gateway API ends and the wider ecosystem begins:
 09-observability-integrations
 10-security-integrations
 11-multi-cluster-patterns
-12-controller-portability
+12-ai-gateway-basics
+13-egress-and-external-backends
+14-policy-telemetry-and-conformance
+15-controller-portability
 ```
 
-These chapters cover advanced protocols, backend TLS, observability, WAF/auth/rate limiting integrations, multi-cluster architecture patterns, and cross-controller portability.
+These chapters cover advanced protocols, backend TLS, observability, WAF/auth/rate limiting integrations, multi-cluster architecture patterns, AI Gateway, MCP Gateway, egress and external backend patterns, emerging policy/telemetry/conformance topics, and cross-controller portability.
 
-NGINX Gateway Fabric is used as the reference Gateway API implementation for Chapters 01-11. Chapter 12 introduces Cilium, Traefik, and Envoy Gateway for portability comparison.
+NGINX Gateway Fabric is used as the reference Gateway API implementation for Chapters 01-14 where practical. Chapter 15 introduces Cilium, Traefik, and Envoy Gateway for portability comparison.
+
+## AI Gateway roadmap
+
+AI Gateway is a required part of this project because Gateway API is moving closer to AI, inference, model traffic, MCP server access, external backends, and egress use cases.
+
+Planned AI Gateway topics:
+
+| Area | Planned treatment |
+|---|---|
+| AI service front door | Route traffic to simple local AI/mock model services through Gateway + HTTPRoute. |
+| Inference routing | Document how Gateway API Inference Extension, inference pools, and model-serving concepts relate to this project. |
+| MCP Gateway | Route and govern agent-to-tool traffic through MCP servers, including auth, tool filtering, audit, and policy controls. |
+| External AI APIs and MCP servers | Explore safe patterns for routing to external AI services and MCP servers without creating open-relay or uncontrolled tool-access risk. |
+| Backend/XBackend concepts | Track emerging Backend and XBackend direction without pretending the API is fully stable. |
+| Egress Gateway | Treat egress as experimental/emerging and focus on security, separation of roles, and implementation differences. |
+| Policy controls | Show how auth, rate limiting, WAF, API-key protection, tool filtering, and namespace boundaries may be layered around AI and MCP traffic. |
+| Telemetry | Show AI and MCP traffic observability needs such as latency, errors, route status, tool calls, and controller metrics. |
+| Conformance and portability | Compare which AI-related patterns are standard, experimental, controller-specific, or only architecture guidance. |
+
+The AI Gateway track should avoid overclaiming. The first implementation can use mock model services, mock MCP servers, and documented architecture patterns before attempting real model-serving or production MCP integrations.
+
+## Topics close to our plan
+
+The Gateway API community topics that are closest to this project are:
+
+| Community topic | Fit with this project | Planned action |
+|---|---|---|
+| TCPRoute and UDPRoute | Already close to Chapter 08. | Keep under backend TLS and protocol expansion. |
+| Backend / XBackend | Strongly related to AI Gateway and external backend work. | Add to Chapters 12 and 13 as emerging concepts. |
+| Gateway API Inference Extension / llm-d | Directly related to AI Gateway. | Track in Chapter 12, initially as architecture notes and mock labs. |
+| MCP Gateway | Strongly related to AI Gateway, agentic traffic, and tool governance. | Add under Chapters 12, 13, and 14 as an AI Gateway sub-track. |
+| Egress Gateway | Very close to AI API access and external backend risk. | Add Chapter 13 with explicit security warnings. |
+| Policy attachment | Already close to governance and security chapters. | Cover in Chapters 05, 10, and 14. |
+| Cross-namespace policy attachment | Close to shared Gateway governance and security. | Mention as emerging/advanced, not basic path. |
+| TelemetryPolicy | Close to observability. | Add to Chapter 14 as emerging topic. |
+| Session persistence | Close to traffic management and Backend policy. | Track in Chapter 14; avoid making it core until stable. |
+| Regex path rewrite portability | Close to migration from ingress-nginx annotations. | Cover under advanced routing and conformance. |
+| Conformance binary / portable tests | Very close to controller portability. | Use to strengthen Chapter 15 later. |
+| ListenerSet / shared Gateway merging | Related to shared Gateway governance. | Mention in Chapter 05/14, but do not make it a first runnable lab yet. |
+| Mesh / GAMMA east-west routing | Related, but broad. | Keep as architecture guidance unless a simple runnable scenario is added later. |
+
+## Not in current plan
+
+Some Gateway API-adjacent topics are important but should not be part of the first implementation wave:
+
+| Topic | Why not now | Possible future treatment |
+|---|---|---|
+| Building a new Gateway API controller | Too large and not aligned with portability-kit positioning. | Only compare existing controllers. |
+| Full API management platform | Gateway API can integrate with API management, but this project should not become Kong/Apigee/MuleSoft. | Cover integration points only. |
+| Production-grade WAF product | WAF belongs to security integrations, not this repo's core implementation. | Show examples and architecture notes. |
+| Full service mesh implementation | Mesh/GAMMA is a large area with its own APIs and controllers. | Keep focused examples only. |
+| Full multi-cluster/global traffic controller | Gateway API is a building block, not a complete global traffic product. | Provide architecture pattern notes. |
+| Real LLM hosting platform | Running real model infrastructure adds GPU, model-serving, cost, and ops complexity. | Start with mock models; add optional real integrations later. |
+| Full MCP platform / registry | MCP gateway patterns are important, but building a complete MCP registry, marketplace, or enterprise control plane is beyond the first implementation wave. | Start with mock MCP servers and gateway/security patterns. |
+| Vendor-specific cloud Gateway deep dives | Useful, but would expand scope too early. | Add later as controller reports or appendices. |
+| Enterprise compliance product | Important for buyers, but beyond the lab scope. | Mention security/compliance checks as future opportunities. |
 
 ## Quick start
 
@@ -432,11 +517,11 @@ Lab 01: localhost:8080 -> NGINX Gateway Fabric -> Gateway + HTTPRoute -> echo-v1
 
 ## Portability comparison
 
-Chapter 12 compares selected scenarios across Gateway API controllers.
+Chapter 15 compares selected scenarios across Gateway API controllers.
 
 The goal is not to prove that every feature works identically everywhere. The goal is to show which parts are portable, which parts are extended, and which parts depend on the selected implementation.
 
-Recommended portability matrix:
+Recommended portability matrix for Chapter 15:
 
 | Scenario | Expected portability | NGINX Gateway Fabric | Cilium | Traefik | Envoy Gateway |
 |---|---|---|---|---|---|
@@ -451,6 +536,10 @@ Recommended portability matrix:
 | Observability integrations | P3 | planned | planned | planned | planned |
 | Security integrations | P3 | planned | planned | planned | planned |
 | Multi-cluster patterns | P4 | planned | planned | planned | planned |
+| AI Gateway basics | P2/P3/P4 | planned | planned | planned | planned |
+| MCP Gateway basics | P2/P3/P4 | planned | planned | planned | planned |
+| Egress and external backends | P2/P3/P4 | planned | planned | planned | planned |
+| Policy, telemetry, and conformance | P2/P3 | planned | planned | planned | planned |
 
 Each controller report should document:
 
@@ -547,13 +636,14 @@ v0.6.0 - Add shared Gateway governance and failure behaviour
 v0.7.0 - Add TLS termination
 v0.8.0 - Add backend TLS and protocol expansion notes
 v0.9.0 - Add observability and security integration chapters
-v1.0.0 - Add multi-cluster patterns and controller portability comparison
+v1.0.0 - Add AI Gateway, MCP Gateway, and egress/external backend architecture notes
+v1.1.0 - Add policy, telemetry, conformance, and controller portability comparison
 ```
 
 ## Project tagline
 
 ```text
-From ingress-nginx to Gateway API: migrate once, compare everywhere.
+From ingress-nginx to Gateway API to AI/MCP Gateway: migrate once, compare everywhere.
 ```
 
 ## License
