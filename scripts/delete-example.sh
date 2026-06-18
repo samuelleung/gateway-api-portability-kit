@@ -5,17 +5,17 @@ EXAMPLE="${1:-}"
 EXAMPLES_ROOT="${EXAMPLES_ROOT:-examples}"
 
 log() {
-  echo "[apply-example] $*"
+  echo "[delete-example] $*"
 }
 
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/apply-example.sh <example-name>
+  ./scripts/delete-example.sh <example-name>
 
 Examples:
-  ./scripts/apply-example.sh 00-ingress-nginx-baseline
-  ./scripts/apply-example.sh 01-basic-http-route
+  ./scripts/delete-example.sh 00-ingress-nginx-baseline
+  ./scripts/delete-example.sh 01-basic-http-route
 EOF
 }
 
@@ -44,26 +44,25 @@ if [ ! -d "${EXAMPLE_DIR}" ]; then
   exit 1
 fi
 
-log "Applying example: ${EXAMPLE}"
+log "Deleting example: ${EXAMPLE}"
 log "Example directory: ${EXAMPLE_DIR}"
 
 if [ -f "${EXAMPLE_DIR}/kustomization.yaml" ] || [ -f "${EXAMPLE_DIR}/kustomization.yml" ]; then
-  log "Detected Kustomize example. Applying with: kubectl apply -k ${EXAMPLE_DIR}"
-  kubectl apply -k "${EXAMPLE_DIR}"
+  log "Detected Kustomize example. Deleting with: kubectl delete -k ${EXAMPLE_DIR}"
+  kubectl delete -k "${EXAMPLE_DIR}" --ignore-not-found=true
 elif find "${EXAMPLE_DIR}" -maxdepth 1 -name '*.yaml' -print -quit | grep -q .; then
-  log "No kustomization.yaml found. Applying raw YAML manifests with: kubectl apply -f ${EXAMPLE_DIR}"
-  kubectl apply -f "${EXAMPLE_DIR}"
+  log "No kustomization.yaml found. Deleting raw YAML manifests with: kubectl delete -f ${EXAMPLE_DIR}"
+  kubectl delete -f "${EXAMPLE_DIR}" --ignore-not-found=true
 elif find "${EXAMPLE_DIR}" -maxdepth 1 -name '*.yml' -print -quit | grep -q .; then
-  log "No kustomization.yaml found. Applying raw YAML manifests with: kubectl apply -f ${EXAMPLE_DIR}"
-  kubectl apply -f "${EXAMPLE_DIR}"
+  log "No kustomization.yaml found. Deleting raw YAML manifests with: kubectl delete -f ${EXAMPLE_DIR}"
+  kubectl delete -f "${EXAMPLE_DIR}" --ignore-not-found=true
 else
   echo "Error: no YAML manifests found in ${EXAMPLE_DIR}" >&2
   exit 1
 fi
 
-log "Applied example: ${EXAMPLE}"
+log "Deleted example: ${EXAMPLE}"
 
 log "Suggested verification commands:"
 echo "  kubectl get ns"
 echo "  kubectl -n echo get pods,svc,ingress,httproute,gateway 2>/dev/null || true"
-echo "  curl -H \"Host: echo.localtest.me\" http://localhost:8080"
