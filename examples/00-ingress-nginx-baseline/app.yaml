@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-v1
+  namespace: echo
+  labels:
+    app: echo
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: echo
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: echo
+        version: v1
+    spec:
+      containers:
+        - name: echo
+          image: ealen/echo-server:0.9.2
+          ports:
+            - containerPort: 80
