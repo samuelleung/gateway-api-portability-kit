@@ -1,38 +1,25 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: demo
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: whoami
-  namespace: demo
+  name: echo-v1
+  namespace: echo
+  labels:
+    app: echo
+    version: v1
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: whoami
+      app: echo
+      version: v1
   template:
     metadata:
       labels:
-        app: whoami
+        app: echo
+        version: v1
     spec:
       containers:
-        - name: whoami
-          image: traefik/whoami:v1.10
+        - name: echo
+          image: ealen/echo-server:0.9.2
           ports:
             - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: whoami
-  namespace: demo
-spec:
-  selector:
-    app: whoami
-  ports:
-    - name: http
-      port: 80
-      targetPort: 80

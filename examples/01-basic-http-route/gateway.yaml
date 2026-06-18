@@ -1,21 +1,15 @@
 apiVersion: gateway.networking.k8s.io/v1
-kind: GatewayClass
-metadata:
-  name: traefik
-spec:
-  controllerName: traefik.io/gateway-controller
----
-apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: shared-gateway
-  namespace: demo
+  name: echo-gateway
+  namespace: echo
 spec:
-  gatewayClassName: traefik
+  gatewayClassName: nginx
   listeners:
     - name: http
       protocol: HTTP
-      port: 8000
+      port: 80
+      hostname: echo.localtest.me
       allowedRoutes:
         namespaces:
           from: Same
