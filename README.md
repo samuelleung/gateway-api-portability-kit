@@ -153,7 +153,7 @@ These chapters track areas that are very close to the current Gateway API direct
 
 ## Target repository structure
 
-The structure below shows the intended project layout. The completed work currently covers `00-ingress-nginx-baseline`, `01-basic-http-route`, the ingress-nginx installer, the NGINX Gateway Fabric installer, and the core apply/delete/local-kind helper scripts. Later chapters, controller notes, reports, advanced helper scripts, and additional controller implementations will be added as the roadmap progresses.
+The structure below shows the intended project layout. The completed work currently covers `00-ingress-nginx-baseline`, `01-basic-http-route`, `02-routing-rules`, the ingress-nginx installer, the NGINX Gateway Fabric installer, and the core local-kind helper scripts. Later chapters, controller notes, reports, advanced helper scripts, and additional controller implementations will be added as the roadmap progresses.
 
 ```text
 gateway-api-portability-kit/
@@ -200,7 +200,7 @@ gateway-api-portability-kit/
   examples/
     00-ingress-nginx-baseline/
     01-basic-http-route/
-    02-routing-rules/              # planned
+    02-routing-rules/
     03-traffic-splitting/          # planned
     04-advanced-http-routing/      # planned
     05-shared-gateway-governance/  # planned
@@ -223,14 +223,15 @@ gateway-api-portability-kit/
     mock-mcp-server/               # planned
 
   scripts/
+    create-lab.sh
     create-cluster.sh
-    delete-cluster.sh        # planned
+    delete-cluster.sh
     install-controller.sh
     apply-example.sh
     delete-example.sh
     patch-gateway-nodeport.sh
-    test-routes.sh           # planned
-    generate-report.sh       # planned
+    test-routes.sh
+    generate-report.sh
 
   reports/
     nginx-gateway-fabric.md          # planned
@@ -238,6 +239,38 @@ gateway-api-portability-kit/
     traefik.md                       # planned
     envoy-gateway.md                 # planned
 ```
+
+## Lab execution model
+
+The labs are conceptually ordered but technically independent after the common lab environment is prepared.
+
+```text
+create-lab.sh
+  ↓
+00-ingress-nginx-baseline
+  ↓
+01-basic-http-route
+  ↓
+02-routing-rules
+  ↓
+future labs
+```
+
+Script responsibilities:
+
+| Script | Responsibility |
+|---|---|
+| `create-lab.sh` | Prepare the shared local lab environment: cluster, Gateway API controller, and shared namespace. |
+| `create-cluster.sh` | Create the local `kind` cluster only. |
+| `install-controller.sh` | Install a selected controller, such as `ingress-nginx` or `nginx-gateway-fabric`. |
+| `apply-example.sh` | Apply one lab example. |
+| `delete-example.sh` | Delete one lab example. |
+| `patch-gateway-nodeport.sh` | Patch the generated Gateway data-plane Service to the fixed local NodePort used by `kind`. |
+| `delete-cluster.sh` | Delete the whole local lab cluster. |
+
+The shared namespace, currently `echo`, is managed by `create-lab.sh`, not by individual examples. This prevents `delete-example.sh` from accidentally deleting the shared namespace when moving from one lab to the next.
+
+Example resources are owned by the individual lab folders. Controller installation, shared namespace creation, and cluster lifecycle are treated as platform-level setup.
 
 ## Ingress to Gateway API mapping
 
@@ -438,26 +471,44 @@ Prerequisites:
 - kubectl
 - kind
 - Helm
+- jq, optional but useful for reading JSON responses from the echo app
 
-This project intentionally tests Lab 00 and Lab 01 as clean migration steps.
+This project intentionally tests the first labs as clean migration steps.
 
-Both labs use the same hostname and local URL:
+All current labs use the same hostname and local URL:
 
 ```text
 Host: echo.localtest.me
 URL:  http://localhost:8080
 ```
 
-### Lab 00 - ingress-nginx baseline
+### 1. Prepare the common lab environment
 
-Start from a clean local cluster:
+Start from a clean local cluster if needed:
 
 ```bash
-kind delete cluster --name gateway-api-lab 2>/dev/null || true
-./scripts/create-cluster.sh
+./scripts/delete-cluster.sh
 ```
 
-Install ingress-nginx:
+Create the shared lab environment:
+
+```bash
+./scripts/create-lab.sh
+```
+
+This prepares the local `kind` cluster, installs the default Gateway API controller used by the main path, and creates the shared `echo` namespace.
+
+Verify the shared environment:
+
+```bash
+kubectl get ns
+kubectl get gatewayclass
+kubectl get ingress,gateway,httproute -A
+```
+
+### 2. Lab 00 - ingress-nginx baseline
+
+Lab 00 uses `ingress-nginx`, so install the ingress baseline controller first:
 
 ```bash
 ./scripts/install-controller.sh ingress-nginx
@@ -466,46 +517,55 @@ Install ingress-nginx:
 Apply the baseline Ingress example:
 
 ```bash
-./scripts/apply-example.sh 00-ingress-nginx-baseline
+./scripts/apply-example.sh 00-ingress-nginx-baseline --namespace echo
 ```
 
 Test the route:
 
 ```bash
-curl -H "Host: echo.localtest.me" http://localhost:8080
+curl -H "Host: echo.localtest.me" http://localhost:8080/
 ```
 
-### Lab 01 - Gateway API equivalent of the ingress-nginx baseline
+Expected result: traffic reaches the `echo-v1` backend through classic Ingress and `ingress-nginx`.
 
-Recreate the cluster so only one traffic controller owns the local test path:
+Delete Lab 00 resources before moving to the Gateway API labs:
 
 ```bash
-kind delete cluster --name gateway-api-lab
-./scripts/create-cluster.sh
+./scripts/delete-example.sh 00-ingress-nginx-baseline --namespace echo
 ```
 
-Install NGINX Gateway Fabric:
+`delete-example.sh` deletes the Lab 00 example resources, but it does not uninstall `ingress-nginx` because controllers are platform-level components. If you are moving from Lab 00 to Gateway API labs, release the local NodePort from `ingress-nginx`:
 
 ```bash
-./scripts/install-controller.sh nginx-gateway-fabric
+kubectl -n ingress-nginx patch svc ingress-nginx-controller \
+  -p '{"spec":{"type":"ClusterIP"}}'
 ```
 
-Apply the Gateway API equivalent:
+Confirm that NodePort `30080` is free:
 
 ```bash
-./scripts/apply-example.sh 01-basic-http-route
+kubectl get svc -A -o wide | grep 30080 || true
 ```
 
-NGINX Gateway Fabric creates a Gateway-specific NGINX data plane Service. For local `kind` testing, patch that generated Service to the fixed NodePort used by `scripts/create-cluster.sh`:
+### 3. Lab 01 - Gateway API equivalent
+
+Apply the Gateway API equivalent of Lab 00:
 
 ```bash
-./scripts/patch-gateway-nodeport.sh
+./scripts/apply-example.sh 01-basic-http-route --namespace echo --patch-nodeport
 ```
 
-Test the same route again:
+Verify the Gateway API resources:
 
 ```bash
-curl -H "Host: echo.localtest.me" http://localhost:8080
+kubectl get gateway,httproute -n echo
+kubectl describe httproute -n echo
+```
+
+Test the same hostname and local URL again:
+
+```bash
+curl -H "Host: echo.localtest.me" http://localhost:8080/
 ```
 
 This confirms that the same application and hostname work through both models:
@@ -514,6 +574,72 @@ This confirms that the same application and hostname work through both models:
 Lab 00: localhost:8080 -> ingress-nginx -> Ingress -> echo-v1
 Lab 01: localhost:8080 -> NGINX Gateway Fabric -> Gateway + HTTPRoute -> echo-v1
 ```
+
+Delete Lab 01 before moving to Lab 02:
+
+```bash
+./scripts/delete-example.sh 01-basic-http-route --namespace echo
+```
+
+### 4. Lab 02 - routing rules
+
+Apply hostname and path-based routing:
+
+```bash
+./scripts/apply-example.sh 02-routing-rules --namespace echo --patch-nodeport
+```
+
+Verify the route status:
+
+```bash
+kubectl get gateway,httproute -n echo
+kubectl describe httproute echo-routing-rules -n echo
+```
+
+Expected status should include:
+
+```text
+Gateway:
+  Programmed=True
+
+HTTPRoute:
+  Accepted=True
+  ResolvedRefs=True
+```
+
+Test the path routing rules:
+
+```bash
+curl -s -H "Host: echo.localtest.me" http://localhost:8080/ | jq -r '.environment.HOSTNAME'
+curl -s -H "Host: echo.localtest.me" http://localhost:8080/v2 | jq -r '.environment.HOSTNAME'
+curl -s -H "Host: echo.localtest.me" http://localhost:8080/admin | jq -r '.environment.HOSTNAME'
+```
+
+Expected result:
+
+```text
+/      -> echo-v1-...
+/v2    -> echo-v2-...
+/admin -> echo-admin-...
+```
+
+Delete Lab 02 when finished:
+
+```bash
+./scripts/delete-example.sh 02-routing-rules --namespace echo
+```
+
+### Script notes
+
+`apply-example.sh` warns when active Ingress, Gateway, or HTTPRoute resources already exist. This helps avoid accidentally testing a new lab while an older lab is still matching the same hostname or local entrypoint.
+
+If you are re-applying the same lab, it is usually safe to continue. If you are switching labs, delete the previous lab first:
+
+```bash
+./scripts/delete-example.sh <previous-lab> --namespace echo
+```
+
+For Gateway API labs using local `kind` access, use `--patch-nodeport` so the generated Gateway data-plane Service is reachable through `localhost:8080`.
 
 ## Portability comparison
 
@@ -614,22 +740,30 @@ Completed milestones:
 ```text
 v0.1.0 - ingress-nginx baseline with classic Ingress
 v0.2.0 - NGINX Gateway Fabric basic Gateway + HTTPRoute equivalent of the ingress-nginx baseline
+v0.3.0 - Routing rules with hostname and path-based HTTPRoute matching
 ```
 
 Current working flow:
 
 ```text
+create-lab.sh
+  prepares the shared local lab environment and echo namespace
+
 00-ingress-nginx-baseline
   localhost:8080 -> ingress-nginx -> Ingress -> echo-v1
 
 01-basic-http-route
   localhost:8080 -> NGINX Gateway Fabric -> Gateway + HTTPRoute -> echo-v1
+
+02-routing-rules
+  localhost:8080/      -> NGINX Gateway Fabric -> HTTPRoute -> echo-v1
+  localhost:8080/v2    -> NGINX Gateway Fabric -> HTTPRoute -> echo-v2
+  localhost:8080/admin -> NGINX Gateway Fabric -> HTTPRoute -> echo-admin
 ```
 
 Planned milestones:
 
 ```text
-v0.3.0 - Add routing rules: hostname and path routing
 v0.4.0 - Add traffic splitting
 v0.5.0 - Add advanced HTTP routing
 v0.6.0 - Add shared Gateway governance and failure behaviour
