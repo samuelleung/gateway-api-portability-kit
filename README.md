@@ -1,10 +1,12 @@
 # Gateway API Portability Kit
 
-A hands-on Kubernetes lab for migrating from **ingress-nginx** to **Gateway API**, then extending the journey into **AI Gateway**, **MCP Gateway**, external backend, policy, telemetry, and controller portability patterns.
+A hands-on Kubernetes Gateway API lab for platform engineers, DevOps engineers, SREs, and solution architects.
+
+The project starts from a familiar **ingress-nginx** baseline, migrates the same traffic patterns to **Gateway API**, then extends the journey toward **AI Gateway**, **MCP Gateway**, external backends, policy, telemetry, security, and controller portability.
 
 ## Overview
 
-Many Kubernetes users start with `ingress-nginx` because it is familiar, widely adopted, and easy to run locally. Gateway API is the newer Kubernetes-native traffic-management API, but unlike the way many users treat `ingress-nginx` in the Ingress world, Gateway API has **no single default controller**.
+Many Kubernetes users start with `ingress-nginx` because it is familiar, widely adopted, and easy to run locally. Gateway API is the newer Kubernetes-native traffic-management API, but it is not a drop-in controller replacement. It is an API model implemented by different controllers, each with its own behaviour, status reporting, integrations, and operational trade-offs.
 
 This project also treats **AI Gateway** as a first-class direction. Gateway API is increasingly relevant to model traffic, inference routing, MCP server access, external AI services, egress control, policy attachment, telemetry, and security. The project therefore starts with classic Ingress migration, then grows toward AI Gateway, MCP Gateway, platform-governance, and controller-portability patterns.
 
@@ -13,7 +15,9 @@ This project uses a practical migration story:
 ```text
 ingress-nginx baseline
   ↓
-Gateway API equivalent
+Gateway API fundamentals
+  ↓
+platform governance and production integrations
   ↓
 AI Gateway, MCP Gateway, and controller portability comparison
 ```
@@ -43,6 +47,7 @@ Compare what actually stays portable.
 ## Project goals
 
 - Provide a clear migration path from `ingress-nginx` to Gateway API.
+- Keep the first labs runnable locally and easy to verify with `curl`.
 - Show side-by-side examples of Ingress and Gateway API resources.
 - Compare multiple Gateway API controllers using the same scenarios.
 - Add an AI Gateway track covering model traffic, inference routing, MCP Gateway patterns, external AI backends, egress risk, and policy/security controls.
@@ -153,7 +158,7 @@ These chapters track areas that are very close to the current Gateway API direct
 
 ## Target repository structure
 
-The structure below shows the intended project layout. The completed work currently covers `00-ingress-nginx-baseline`, `01-basic-http-route`, `02-routing-rules`, the ingress-nginx installer, the NGINX Gateway Fabric installer, and the core local-kind helper scripts. Later chapters, controller notes, reports, advanced helper scripts, and additional controller implementations will be added as the roadmap progresses.
+The structure below shows the intended project layout. The completed work currently covers `00-ingress-nginx-baseline`, `01-basic-http-route`, `02-routing-rules`, `03-traffic-splitting`, the ingress-nginx installer, the NGINX Gateway Fabric installer, and the core local-kind helper scripts. Later chapters, controller notes, reports, advanced helper scripts, and additional controller implementations will be added as the roadmap progresses.
 
 ```text
 gateway-api-portability-kit/
@@ -201,7 +206,7 @@ gateway-api-portability-kit/
     00-ingress-nginx-baseline/
     01-basic-http-route/
     02-routing-rules/
-    03-traffic-splitting/          # planned
+    03-traffic-splitting/
     04-advanced-http-routing/      # planned
     05-shared-gateway-governance/  # planned
     06-failure-behaviour/          # planned
@@ -252,6 +257,8 @@ create-lab.sh
 01-basic-http-route
   ↓
 02-routing-rules
+  ↓
+03-traffic-splitting
   ↓
 future labs
 ```
@@ -629,6 +636,39 @@ Delete Lab 02 when finished:
 ./scripts/delete-example.sh 02-routing-rules --namespace echo
 ```
 
+### 5. Lab 03 - traffic splitting
+
+Apply weighted backend routing:
+
+```bash
+./scripts/apply-example.sh 03-traffic-splitting --namespace echo --patch-nodeport
+```
+
+Verify the route status:
+
+```bash
+kubectl get gateway,httproute -n echo
+kubectl describe httproute echo-traffic-split -n echo
+```
+
+Test the approximate `80/20` split between `echo-v1` and `echo-v2`:
+
+```bash
+for i in $(seq 1 50); do
+  curl -s -H "Host: echo.localtest.me" http://localhost:8080/ \
+    | jq -r '.environment.HOSTNAME' \
+    | cut -d- -f1-2
+done | sort | uniq -c
+```
+
+Expected result: `echo-v1` should appear more often than `echo-v2`. The exact ratio does not need to be perfect in a small sample.
+
+Delete Lab 03 when finished:
+
+```bash
+./scripts/delete-example.sh 03-traffic-splitting --namespace echo
+```
+
 ### Script notes
 
 `apply-example.sh` warns when active Ingress, Gateway, or HTTPRoute resources already exist. This helps avoid accidentally testing a new lab while an older lab is still matching the same hostname or local entrypoint.
@@ -653,7 +693,7 @@ Recommended portability matrix for Chapter 15:
 |---|---|---|---|---|---|
 | Basic HTTPRoute | P0 | completed | planned | planned | planned |
 | Routing rules | P0/P1 | planned | planned | planned | planned |
-| Traffic splitting | P1 | planned | planned | planned | planned |
+| Traffic splitting | P1 | completed | planned | planned | planned |
 | Advanced HTTP routing | P1/P2 | planned | planned | planned | planned |
 | Shared Gateway governance | P1/P2 | planned | planned | planned | planned |
 | Failure behaviour | P2 | planned | planned | planned | planned |
@@ -741,6 +781,7 @@ Completed milestones:
 v0.1.0 - ingress-nginx baseline with classic Ingress
 v0.2.0 - NGINX Gateway Fabric basic Gateway + HTTPRoute equivalent of the ingress-nginx baseline
 v0.3.0 - Routing rules with hostname and path-based HTTPRoute matching
+v0.4.0 - Traffic splitting with weighted HTTPRoute backendRefs
 ```
 
 Current working flow:
@@ -759,12 +800,16 @@ create-lab.sh
   localhost:8080/      -> NGINX Gateway Fabric -> HTTPRoute -> echo-v1
   localhost:8080/v2    -> NGINX Gateway Fabric -> HTTPRoute -> echo-v2
   localhost:8080/admin -> NGINX Gateway Fabric -> HTTPRoute -> echo-admin
+
+03-traffic-splitting
+  localhost:8080/ -> NGINX Gateway Fabric -> HTTPRoute weighted backendRefs
+    80% -> echo-v1
+    20% -> echo-v2
 ```
 
 Planned milestones:
 
 ```text
-v0.4.0 - Add traffic splitting
 v0.5.0 - Add advanced HTTP routing
 v0.6.0 - Add shared Gateway governance and failure behaviour
 v0.7.0 - Add TLS termination
@@ -779,6 +824,28 @@ v1.1.0 - Add policy, telemetry, conformance, and controller portability comparis
 ```text
 From ingress-nginx to Gateway API to AI/MCP Gateway: migrate once, compare everywhere.
 ```
+
+## Current focus
+
+The current implemented path is:
+
+```text
+00 -> 01 -> 02 -> 03
+```
+
+This gives users a complete first journey from classic Ingress to Gateway API fundamentals:
+
+```text
+Ingress baseline
+  ↓
+Basic Gateway + HTTPRoute
+  ↓
+Hostname and path routing
+  ↓
+Weighted traffic splitting
+```
+
+The next focus is `04-advanced-http-routing`, covering header, method, query, modifier, and rewrite-style routing patterns.
 
 ## License
 
